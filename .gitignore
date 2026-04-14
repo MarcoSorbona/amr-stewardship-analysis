@@ -1,0 +1,16 @@
+# R
+.Rproj.user
+.RData
+.Rhistory
+
+# Data (raw is large, but we keep structure)
+data/raw/*.csv
+data/raw/*.rds
+
+# Outputs
+*.html
+*.pdf
+
+# OS files
+.DS_Store
+Thumbs.db
