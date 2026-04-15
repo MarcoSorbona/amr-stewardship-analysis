@@ -1,0 +1,286 @@
+---
+title: "Antimicrobial Stewardship: Co-amoxiclav Prescribing in England and C. difficile Risk"
+author: "Marco Sorbona, PhD"
+date: "April 2026"
+format: 
+  html:
+    toc: true
+    code-fold: false
+    theme: cosmo
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+#| label: load-libraries
+#| include: false
+
+# Load libraries
+library(tidyverse)
+library(lubridate)
+library(plotly)
+library(knitr)
+library(DT)
+library(scales)
+
+# Load the clean, analysis-ready data
+coamox_data <- readRDS("data/processed/coamox_data.rds")
+
+# Load CSV directly instead of RDS
+# coamox_data <- read_csv("data/raw/coamoxiclav_prescribing.csv") |> 
+#   mutate(
+#     year = year(date),
+#     month = month(date)
+#   )
+
+```
+
+## Introduction
+
+Co-amoxiclav (co-amoxicillin-clavulanate) is a broad-spectrum antibiotic classified as one of the "4C" antibiotics that significantly increase the risk of Clostridioides difficile infection (CDI). This analysis investigates:
+
+1.  Trends in co-amoxiclav prescribing across England (2021–2026)
+
+2.  Regional variation in prescribing
+
+3.  The link to a previously detected C. difficile outbreak signal in the East Midlands
+
+## Data Overview
+
+```{r}
+# Data Structure
+glimpse(coamox_data)
+
+# Summary statistics
+coamox_data |> 
+  summarise(
+    start_date = min(date),
+    end_date = max(date),
+    total_organisations = n_distinct(row_id),
+    total_items = sum(items, na.rm = TRUE),
+    total_cost = sum(actual_cost, na.rm = TRUE)
+  ) |> 
+  kable(caption = "Dataset summary")
+```
+
+## National Trends
+
+Co-amoxiclav prescribing in England shows two distinct patterns:
+
+### 1. Prescribing volume has remained stable
+
+The faceted plot (upper panel) shows prescription items fluctuating between **90,000 and 110,000 per month** from February 2021 to January 2026. There is no significant upward or downward trend in prescribing volume.
+
+### 2. Total cost has been volatile
+
+The same plot (lower panel) reveals dramatic cost variation:
+
+-   **2021-2022**: Stable monthly costs (\~£250,000-300,000)
+-   **Late 2022 - 2023**: A **sharp spike** beginning November 2022, peaking in December 2022 (£1.06 million) and remaining elevated through 2023
+-   **2024-2026**: Gradual decline to lowest levels in January 2026 (£211,000)
+
+```{r}
+#| label: national-trends-faceted
+#| fig-cap: "Co-amoxiclav prescribing in England (2021-2026)"
+
+# National Monthly Trend
+national_trend <- coamox_data |> 
+  group_by(date) |> 
+  summarise(
+    total_items = sum(items, na.rm = TRUE),
+    total_cost = sum(actual_cost, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Reshape data for faceting
+national_long <- national_trend |> 
+  pivot_longer(
+    cols = c(total_items, total_cost),
+    names_to = "metric",
+    values_to = "value"
+  ) |> 
+  mutate(
+    metric = case_when(
+      metric == "total_items" ~ "Prescription items",
+      metric == "total_cost" ~ "Total cost (£)"
+    )
+  )
+
+# Plot with free y-axes
+p_faceted <- ggplot(national_long, aes(x = date, y = value)) +
+  geom_line(color = "steelblue", linewidth = 0.8) +
+  geom_point(size = 0.5) +
+  facet_wrap(~metric, scales = "free_y", ncol = 1) +
+  scale_y_continuous(labels = comma) +
+  labs(
+    title = "Co-amoxiclav Prescribing in England",
+    subtitle = "Monthly prescription items and total cost (Feb 2021 – Jan 2026)",
+    x = "Date",
+    y = ""
+  ) +
+  theme_minimal()
+
+ggplotly(p_faceted)
+```
+
+### The two-y-axis plot tells the whole story
+
+The combined plot shows the **cost spike visually overwhelming the prescribing volume**: this is not a visualisation flaw but the actual finding. At the peak, costs were **5 times higher** than baseline while prescribing volume remained unchanged.
+
+**Interpretation:** The NHS experienced a dramatic increase in co-amoxiclav costs in 2022-2023, likely due to:
+
+-   Supply chain disruptions
+
+-   Manufacturer price increases
+
+-   Generic market changes
+
+The subsequent decline to record-low costs in 2025-2026 suggests successful procurement interventions or new generic entry.
+
+**Stewardship implication:** Prescribing volume has been stable throughout. Future stewardship should focus on **appropriate use** and **cost-effective prescribing** without reducing necessary treatments.
+
+```{r}
+#| label: national-trends
+#| fig-cap: "Co-amoxiclav prescribing in England (2021-2026)"
+#| 
+# National Monthly Trend
+national_trend <- coamox_data |> 
+  group_by(date) |> 
+  summarise(
+    total_items = sum(items, na.rm = TRUE),
+    total_cost = sum(actual_cost, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Plot with two y-axes (items and cost)
+ggplot(national_trend, aes(x = date)) +
+  geom_line(aes(y = total_items, color = "Prescription items"), linewidth = 0.8) +
+  geom_line(aes(y = total_cost, color = "Total cost (£k)"), linewidth = 0.8) +
+  scale_y_continuous(
+    name = "Prescription items",
+    labels = scales::comma,
+    sec.axis = sec_axis(~ . * 1, name = "Total cost (£)", labels = scales::comma)
+  ) +
+  scale_color_manual(values = c("Prescription items" = "steelblue", "Total cost (£k)" = "darkred")) +
+  labs(
+    title = "Co-amoxiclav Prescribing in England",
+    subtitle = "Monthly prescription items (Feb 2021 - present)",
+    x = "Date",
+    y = "Total prescription items",
+    color = ""
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    axis.title.y.right = element_text(color = "darkred"),
+    axis.text.y.right = element_text(color = "darkred"),
+    axis.title.y.left = element_text(color = "steelblue"),
+    axis.text.y.left = element_text(color = "steelblue")
+  )
+```
+
+### Cost per item
+
+```{r}
+#| label: cost-per-item
+#| fig-cap: "Cost per prescription"
+
+cost_per_item <- national_trend |> 
+  mutate(
+    cost_per_item = total_cost / total_items,
+    year = year(date)
+  )
+
+p_cost_per_item <- ggplot(cost_per_item,aes(x = date, y = cost_per_item)) +
+  geom_line(color = "darkred", linewidth = 0.8) +
+  geom_point(size = 1) +
+  scale_y_continuous(
+    labels = scales::dollar_format(prefix = "£") 
+  ) +
+  labs(
+    title = "Co-amoxiclav Cost Per Prescription Item",
+    subtitle = "Monthly average cost per item (Feb 2021 – Jan 2026)",
+    x = "Date",
+    y = "Cost per item"
+  ) +
+  theme_minimal()
+
+ggplotly(p_cost_per_item)
+
+# Summary table
+cost_per_item_summary <- cost_per_item |> 
+  mutate(
+    year = year(date),
+    month = month(date)
+  ) |> 
+  group_by(year, month) |> 
+  summarise(
+    avg_cost_per_item = mean(cost_per_item, na.rm = TRUE),
+    min_cost = min(cost_per_item, na.rm = TRUE),
+    max_cost = max(cost_per_item, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+kable(cost_per_item_summary, digits = 2, caption = "Average cost per prescription item by year")
+```
+
+## 
+
+## Interpretation: What Caused the Cost Spike?
+
+The dramatic increase in co-amoxiclav costs in late 2022–2023 is not a statistical anomaly but a real-world event with known causes.
+
+### The Strep A Outbreak
+
+Between January 2022 and January 2023, the cost of co-amoxiclav 500mg/125mg tablets surged by **over 500%**. Prices rose from approximately **£1.35–£1.70 per pack to over £8.00–£18.00** in some cases.
+
+The cause was "unprecedented" demand during a **Group A Streptococcus (Strep A) outbreak**, which led to a rapid increase in antibiotic prescriptions. This was compounded by global supply chain shortages for raw materials.
+
+### Impact on the NHS
+
+The surge meant pharmacists were paying significantly more for the medicine than the NHS reimbursement price. The Department of Health and Social Care (DHSC) issued supply warnings, noting that while stock was available with manufacturers, it was not reaching pharmacies fast enough.
+
+### Market Dynamics
+
+This spike fits a recurring pattern: low, often unprofitable, market prices for generics lead to manufacturer withdrawal, followed by shortages and high prices.
+
+### Temporal Alignment with UKHSA Data
+
+The cost spike coincides precisely with a period of elevated Group A Streptococcal (GAS) infections in England. A UK Health Security Agency (UKHSA) report on the 2022/23 season noted a "period of considerable elevation in scarlet fever notifications" and "unusual seasonal patterns" following the COVID-19 pandemic \[1\].
+
+Specifically, UKHSA surveillance data shows that laboratory notifications of invasive GAS (iGAS) infection began to rise sharply in late 2022. The report for the 2025/26 season retrospectively notes that the early part of the 2022/23 GAS season saw a significant upsurge in cases, a trend which is not being observed in the current season \[1\].
+
+This established temporal alignment—between a sharp rise in GAS infections, the subsequent increase in antibiotic demand, and the documented supply shortages—provides the causal mechanism for the 500% price surge.
+
+### Ongoing Volatility
+
+As of 2025, price concessions have continued to be necessary for certain co-amoxiclav products, suggesting ongoing cost volatility.
+
+### Stewardship Implications
+
+| Finding | Implication |
+|------------------------------------|------------------------------------|
+| Prescribing volume stable | The spike was not due to overprescribing |
+| Cost spike driven by external factors | Pharmacoeconomic surveillance needed |
+| Ongoing volatility | Price monitoring should be part of stewardship |
+
+**Key takeaway:** The NHS needs systems to monitor not just prescribing volume but also **cost volatility** and **supply chain resilience**.
+
+## Regional Variation
+
+### Top Prescribing Organisations
+
+## References
+
+1.  UK Health Security Agency. (2026). *Group A streptococcal infections: report on seasonal activity in England, 2025 to 2026*. GOV.UK. \[[link](https://www.gov.uk/government/publications/group-a-streptococcal-infections-seasonal-activity-in-england-2025-to-2026/group-a-streptococcal-infections-report-on-seasonal-activity-in-england-2025-to-2026)\]
+
+2.  Chemist+Druggist. (2023). *Co-amoxiclav price surges amid Strep A outbreak*.
+
+3.  Department of Health and Social Care. (2022-2023). *Supply notifications for co-amoxiclav*.
+
+4.  British Generic Manufacturers Association. (2023). *Generic medicine supply challenges*.
+
+5.  OpenPrescribing.net, Bennett Institute for Applied Data Science, University of Oxford.
+
+6.  NHS England. (2024). *National Medicines Optimisation Opportunities 2024/25*.
