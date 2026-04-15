@@ -1,0 +1,58 @@
+---
+title: "Data Curation Report: OpenPrescribing Co-amoxiclav Data"
+author: "Marco Sorbona, PhD"
+date: "April 2026"
+format: html
+---
+
+## Summary
+
+This report documents the curation of co-amoxiclav prescribing data from OpenPrescribing.net for antimicrobial stewardship analysis.
+
+## Data Source
+
+| Property | Value |
+|------------------------------------------|------------------------------|
+| **URL** | `https://openprescribing.net/api/1.0/spending_by_org/?org_type=sicbl&code=0501013K0&format=csv` |
+| **Format** | CSV |
+| **Access method** | Manual download |
+
+## Curation Steps
+
+| Step            | Description                                       |
+|-----------------|---------------------------------------------------|
+| 1\. Load        | `read_csv()` with default settings                |
+| 2\. Inspect     | Checked structure, missing values, date range     |
+| 3\. Clean names | `janitor::clean_names()` for consistent syntax    |
+| 4\. Validate    | Checked for duplicates, negative values, outliers |
+| 5\. Derive      | Added `year`, `month`, `cost_per_item`            |
+| 6\. Save        | Exported as RDS and CSV                           |
+
+## Data Quality Assessment
+
+| Metric        | Result                   |
+|---------------|--------------------------|
+| Completeness  | 100% (no missing values) |
+| Duplicates    | 0                        |
+| Date range    | Feb 2021 – Jan 2026      |
+| Organisations | 106 Sub-ICB Locations    |
+| Total rows    | 6,360                    |
+
+## Limitations
+
+-   **Population denominators**: Not available in this dataset. Prescribing rates per capita cannot be calculated.
+-   **Primary care only**: Hospital prescribing not included.
+-   **Aggregate level**: No patient-level data for clinical validation.
+
+## Reproducibility
+
+All curation code is available in `R/01_curate_data.R`. To reproduce:
+
+1.  Download raw CSV from OpenPrescribing
+2.  Place in `data/raw/`
+3.  Run `R/01_curate_data.R`
+4.  Load `data/processed/coamox_data_curated.rds`
+
+## Conclusion
+
+The OpenPrescribing co-amoxiclav dataset is well-structured and required minimal cleaning. The curation process focused on standardisation, validation, and documentation to ensure reproducibility for the antimicrobial stewardship analysis.

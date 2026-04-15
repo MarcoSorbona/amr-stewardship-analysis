@@ -25,7 +25,7 @@ library(DT)
 library(scales)
 
 # Load the clean, analysis-ready data
-coamox_data <- readRDS("data/processed/coamox_data.rds")
+coamox_data <- readRDS("data/processed/coamox_data_curated.rds")
 ```
 
 ## Introduction
@@ -49,9 +49,9 @@ coamox_data |>
   summarise(
     start_date = min(date),
     end_date = max(date),
-    total_organisations = n_distinct(row_id),
-    total_items = sum(items, na.rm = TRUE),
-    total_cost = sum(actual_cost, na.rm = TRUE)
+    total_organisations = n_distinct(organisation_code),
+    total_prescribing_items = sum(prescribing_items, na.rm = TRUE),
+    total_cost = sum(prescribing_cost, na.rm = TRUE)
   ) |> 
   kable(caption = "Dataset summary")
 ```
@@ -80,21 +80,21 @@ The same plot (lower panel) reveals dramatic cost variation:
 national_trend <- coamox_data |> 
   group_by(date) |> 
   summarise(
-    total_items = sum(items, na.rm = TRUE),
-    total_cost = sum(actual_cost, na.rm = TRUE),
+    total_prescribing_items = sum(prescribing_items, na.rm = TRUE),
+    total_cost = sum(prescribing_cost, na.rm = TRUE),
     .groups = "drop"
   )
 
 # Reshape data for faceting
 national_long <- national_trend |> 
   pivot_longer(
-    cols = c(total_items, total_cost),
+    cols = c(total_prescribing_items, total_cost),
     names_to = "metric",
     values_to = "value"
   ) |> 
   mutate(
     metric = case_when(
-      metric == "total_items" ~ "Prescription items",
+      metric == "total_prescribing_items" ~ "Prescription items",
       metric == "total_cost" ~ "Total cost (£)"
     )
   )
@@ -138,7 +138,7 @@ The subsequent decline to record-low costs in 2025-2026 suggests successful proc
 
 # Plot with two y-axes (items and cost)
 ggplot(national_trend, aes(x = date)) +
-  geom_line(aes(y = total_items, color = "Prescription items"), linewidth = 0.8) +
+  geom_line(aes(y = total_prescribing_items, color = "Prescription items"), linewidth = 0.8) +
   geom_line(aes(y = total_cost, color = "Total cost (£k)"), linewidth = 0.8) +
   scale_y_continuous(
     name = "Prescription items",
@@ -171,7 +171,7 @@ ggplot(national_trend, aes(x = date)) +
 
 cost_per_item <- national_trend |> 
   mutate(
-    cost_per_item = total_cost / total_items,
+    cost_per_item = total_cost / total_prescribing_items,
     year = year(date)
   )
 
@@ -241,7 +241,7 @@ As of 2025, price concessions have continued to be necessary for certain co-amox
 ### Stewardship Implications
 
 | Finding | Implication |
-|------------------------------------|------------------------------------|
+|----|----|
 | Prescribing volume stable | The spike was not due to overprescribing |
 | Cost spike driven by external factors | Pharmacoeconomic surveillance needed \[6\] |
 | Ongoing volatility | Price monitoring should be part of stewardship \[3\] |
@@ -257,12 +257,12 @@ As of 2025, price concessions have continued to be necessary for certain co-amox
 
 # Top 10 organisations by total items
 top_orgs <- coamox_data |> 
-  group_by(row_name) |> 
+  group_by(organisation_name) |> 
   summarise(
-    total_items = sum(items, na.rm = TRUE),
+    total_prescribing_items = sum(prescribing_items, na.rm = TRUE),
     .groups = "drop"
   ) |> 
-  arrange(desc(total_items)) |> 
+  arrange(desc(total_prescribing_items)) |> 
   head(10)
 
 kable(top_orgs, caption = "Top 10 prescribing organisations")
@@ -272,7 +272,7 @@ kable(top_orgs, caption = "Top 10 prescribing organisations")
 ### Key Observations
 
 -   **London dominates prescribing**: 4 of the top 5 prescribing organisations are in London (North East, North West, South East, South West London)
--   **Total prescriptions**: The top 10 organisations account for approximately `r sum(top_orgs$total_items)` items
+-   **Total prescriptions**: The top 10 organisations account for approximately `r sum(top_orgs$total_prescribing_items)` items
 -   **Regional variation**: Significant variation exists, with London ICBs consistently higher than other regions
 
 **Note:** This reflects prescribing volume, not population-adjusted rates. Without population denominators, we cannot determine if higher prescribing is due to larger populations or higher prescribing intensity.
@@ -284,30 +284,30 @@ kable(top_orgs, caption = "Top 10 prescribing organisations")
 
 # List all unique organisation names
 all_orgs <- coamox_data |> 
-  distinct(row_id, row_name) |> 
-  arrange(row_name)
+  distinct(organisation_code, organisation_name) |> 
+  arrange(organisation_name)
 
 # Search for East Midlands keywords
 east_midlands_keywords <- c("NOTTINGHAM", "DERBY", "LEICESTER", "LINCOLN", 
                              "NORTHAMPTON", "RUTLAND", "EAST MIDLANDS")
 
 east_midlands_orgs <- coamox_data |> 
-  distinct(row_id, row_name) |> 
-  filter(str_detect(toupper(row_name), paste(east_midlands_keywords, collapse = "|")))
+  distinct(organisation_code, organisation_name) |> 
+  filter(str_detect(toupper(organisation_name), paste(east_midlands_keywords, collapse = "|")))
 
 # View results
 kable(east_midlands_orgs, caption = "East Midlands Organisations")
 
 # East Midlands ICB codes
-east_midlands_codes <- east_midlands_orgs$row_id
+east_midlands_codes <- east_midlands_orgs$organisation_code
 
-# Claculate East Midlands prescribing over time
+# Calculate East Midlands prescribing over time
 east_midlands_data <- coamox_data |> 
-  filter(row_id %in% east_midlands_codes) |> 
+  filter(organisation_code %in% east_midlands_codes) |> 
   group_by(date) |> 
   summarise(
-    em_items = sum(items, na.rm = TRUE),
-    em_cost = sum(actual_cost, na.rm = TRUE),
+    em_prescribing_items = sum(prescribing_items, na.rm = TRUE),
+    em_cost = sum(prescribing_cost, na.rm = TRUE),
     .groups = "drop"
   )
 
@@ -318,16 +318,16 @@ regional_comparison <- national_trend |>
     by = "date"
     ) |> 
   mutate(
-    em_share_items = em_items / total_items * 100,
+    em_share_prescribing_items = em_prescribing_items / total_prescribing_items * 100,
     em_share_cost = em_cost / total_cost * 100
   )
 
 # Average share
-avg_em_share <- mean(regional_comparison$em_share_items, na.rm = TRUE)
+avg_em_share <- mean(regional_comparison$em_share_prescribing_items, na.rm = TRUE)
 expected_share <- 100/9 # 11.11%
 
 # Plot
-ggplot(regional_comparison, aes(x = date, y = em_share_items)) +
+ggplot(regional_comparison, aes(x = date, y = em_share_prescribing_items)) +
   geom_line(color = "darkred", linewidth = 1) +
   geom_hline(yintercept = expected_share, linetype = "dashed", color = "gray50") +
   annotate("text", x = min(regional_comparison$date), y = expected_share + 1,
