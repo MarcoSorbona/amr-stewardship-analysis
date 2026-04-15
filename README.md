@@ -105,6 +105,14 @@ amr-stewardship-analysis/
 
 ------------------------------------------------------------------------
 
+## Documentation
+
+-   [Information Governance](INFO_GOVERNANCE.md)
+-   [Data Quality Prevention](DATA_QUALITY.md)
+-   [Equality, Diversity and Inclusion](EDI.md)
+
+------------------------------------------------------------------------
+
 ## 📬 Contact
 
 **Marco Sorbona, PhD**\
