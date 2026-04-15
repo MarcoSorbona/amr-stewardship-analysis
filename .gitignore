@@ -8,7 +8,6 @@ data/raw/*.csv
 data/raw/*.rds
 
 # Outputs
-*.html
 *.pdf
 
 # OS files

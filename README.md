@@ -4,6 +4,15 @@ A data curation and analysis project investigating co-amoxiclav prescribing tren
 
 [**View the Live Analysis →**](https://marcosorbona.github.io/amr-stewardship-analysis/amr_stewardship.html)
 
+## Projects
+
+### AMR Stewardship: Co-amoxiclav Prescribing in England
+
+**Focus:** Antimicrobial stewardship, co-amoxiclav prescribing trends, C. difficile link\
+**Skills:** Data curation, time series, regional analysis, interactive dashboards\
+[View Analysis](https://marcoSorbona.github.io/amr-stewardship-analysis/amr_stewardship.html)\
+[View Curation Report](https://marcoSorbona.github.io/amr-stewardship-analysis/curation_report.html)
+
 ------------------------------------------------------------------------
 
 ## 📁 Project Structure
@@ -49,7 +58,7 @@ amr-stewardship-analysis/
 ## 📊 Key Findings
 
 | Finding | Detail |
-|----|----|
+|--------------------------------------|----------------------------------|
 | **Prescribing volume stable** | 90,000–110,000 items/month (2021–2026) |
 | **Cost spike (2022-2023)** | 500% price increase during Strep A outbreak |
 | **Cost per item** | Dropped from £5.50 (2023) to £2.07 (2026) |
@@ -61,7 +70,7 @@ amr-stewardship-analysis/
 ## 🛠️ Skills Demonstrated
 
 | Skill | Evidence |
-|----|----|
+|------------------------------|------------------------------------------|
 | **Data curation** | Reusable pipeline, quality checks, data dictionary, curation report |
 | **API data acquisition** | OpenPrescribing CSV export |
 | **Data validation** | Missing values, duplicates, range checks |
