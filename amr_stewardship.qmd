@@ -26,14 +26,6 @@ library(scales)
 
 # Load the clean, analysis-ready data
 coamox_data <- readRDS("data/processed/coamox_data.rds")
-
-# Load CSV directly instead of RDS
-# coamox_data <- read_csv("data/raw/coamoxiclav_prescribing.csv") |> 
-#   mutate(
-#     year = year(date),
-#     month = month(date)
-#   )
-
 ```
 
 ## Introduction
@@ -143,15 +135,6 @@ The subsequent decline to record-low costs in 2025-2026 suggests successful proc
 ```{r}
 #| label: national-trends
 #| fig-cap: "Co-amoxiclav prescribing in England (2021-2026)"
-#| 
-# National Monthly Trend
-national_trend <- coamox_data |> 
-  group_by(date) |> 
-  summarise(
-    total_items = sum(items, na.rm = TRUE),
-    total_cost = sum(actual_cost, na.rm = TRUE),
-    .groups = "drop"
-  )
 
 # Plot with two y-axes (items and cost)
 ggplot(national_trend, aes(x = date)) +
@@ -225,8 +208,6 @@ cost_per_item_summary <- cost_per_item |>
 kable(cost_per_item_summary, digits = 2, caption = "Average cost per prescription item by year")
 ```
 
-## 
-
 ## Interpretation: What Caused the Cost Spike?
 
 The dramatic increase in co-amoxiclav costs in late 2022–2023 is not a statistical anomaly but a real-world event with known causes.
@@ -262,14 +243,123 @@ As of 2025, price concessions have continued to be necessary for certain co-amox
 | Finding | Implication |
 |------------------------------------|------------------------------------|
 | Prescribing volume stable | The spike was not due to overprescribing |
-| Cost spike driven by external factors | Pharmacoeconomic surveillance needed |
-| Ongoing volatility | Price monitoring should be part of stewardship |
+| Cost spike driven by external factors | Pharmacoeconomic surveillance needed \[6\] |
+| Ongoing volatility | Price monitoring should be part of stewardship \[3\] |
 
 **Key takeaway:** The NHS needs systems to monitor not just prescribing volume but also **cost volatility** and **supply chain resilience**.
 
 ## Regional Variation
 
 ### Top Prescribing Organisations
+
+```{r}
+#| label: prescribing-organisations
+
+# Top 10 organisations by total items
+top_orgs <- coamox_data |> 
+  group_by(row_name) |> 
+  summarise(
+    total_items = sum(items, na.rm = TRUE),
+    .groups = "drop"
+  ) |> 
+  arrange(desc(total_items)) |> 
+  head(10)
+
+kable(top_orgs, caption = "Top 10 prescribing organisations")
+
+```
+
+### Key Observations
+
+-   **London dominates prescribing**: 4 of the top 5 prescribing organisations are in London (North East, North West, South East, South West London)
+-   **Total prescriptions**: The top 10 organisations account for approximately `r sum(top_orgs$total_items)` items
+-   **Regional variation**: Significant variation exists, with London ICBs consistently higher than other regions
+
+**Note:** This reflects prescribing volume, not population-adjusted rates. Without population denominators, we cannot determine if higher prescribing is due to larger populations or higher prescribing intensity.
+
+### Identifying East Midlands Organisations
+
+```{r}
+#| label: east-midlands-organisations
+
+# List all unique organisation names
+all_orgs <- coamox_data |> 
+  distinct(row_id, row_name) |> 
+  arrange(row_name)
+
+# Search for East Midlands keywords
+east_midlands_keywords <- c("NOTTINGHAM", "DERBY", "LEICESTER", "LINCOLN", 
+                             "NORTHAMPTON", "RUTLAND", "EAST MIDLANDS")
+
+east_midlands_orgs <- coamox_data |> 
+  distinct(row_id, row_name) |> 
+  filter(str_detect(toupper(row_name), paste(east_midlands_keywords, collapse = "|")))
+
+# View results
+kable(east_midlands_orgs, caption = "East Midlands Organisations")
+
+# East Midlands ICB codes
+east_midlands_codes <- east_midlands_orgs$row_id
+
+# Claculate East Midlands prescribing over time
+east_midlands_data <- coamox_data |> 
+  filter(row_id %in% east_midlands_codes) |> 
+  group_by(date) |> 
+  summarise(
+    em_items = sum(items, na.rm = TRUE),
+    em_cost = sum(actual_cost, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Join with national data
+regional_comparison <- national_trend |> 
+  left_join(
+    east_midlands_data,
+    by = "date"
+    ) |> 
+  mutate(
+    em_share_items = em_items / total_items * 100,
+    em_share_cost = em_cost / total_cost * 100
+  )
+
+# Average share
+avg_em_share <- mean(regional_comparison$em_share_items, na.rm = TRUE)
+expected_share <- 100/9 # 11.11%
+
+# Plot
+ggplot(regional_comparison, aes(x = date, y = em_share_items)) +
+  geom_line(color = "darkred", linewidth = 1) +
+  geom_hline(yintercept = expected_share, linetype = "dashed", color = "gray50") +
+  annotate("text", x = min(regional_comparison$date), y = expected_share + 1,
+           label = paste0("Expected share (", round(expected_share, 1), "%)"),
+           hjust = 0, size = 3) +
+  labs(
+    title = "East Midlands Share of Co-amoxiclav Prescribing",
+    subtitle = paste0("Average share: ", round(avg_em_share, 1), "% vs expected 11.1%"),
+    x = "Date",
+    y = "Percentage of national prescriptions"
+  ) +
+  theme_minimal()
+
+  
+```
+
+### Link to C. difficile Outbreak
+
+Previous analysis detected a **sustained C. difficile outbreak signal in the East Midlands**, with 80% of weeks exceeding the Poisson threshold during 2024.
+
+However, co-amoxiclav prescribing in the East Midlands accounts for only **`r round(avg_em_share, 1)`%** of national prescribing – consistently **below** the expected share of 11.1%.
+
+This suggests that:
+
+1.  **Co-amoxiclav use alone does not explain the outbreak signal**
+2.  Other factors should be investigated:
+    -   **Antibiotic course length** (not just volume)
+    -   **Other high-risk antibiotics** (cephalosporins, quinolones)
+    -   **Infection control practices**
+    -   **Patient case mix**
+
+**Stewardship implication:** While co-amoxiclav prescribing is not elevated, the East Midlands outbreak warrants broader investigation of antibiotic use patterns and infection control measures.
 
 ## References
 
